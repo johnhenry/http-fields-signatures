@@ -1,0 +1,54 @@
+{
+  "name": "http-fields-signatures",
+  "version": "0.1.0",
+  "description": "RFC 9421 HTTP Message Signatures — sign and verify HTTP requests and responses, built on http-fields (RFC 8941/9651 Structured Field Values) and WebCrypto",
+  "main": "index.mjs",
+  "type": "module",
+  "types": "./types.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types.d.ts",
+      "import": "./index.mjs"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.mjs"
+  },
+  "keywords": [
+    "http",
+    "signatures",
+    "message-signatures",
+    "rfc9421",
+    "http-fields",
+    "structured-fields",
+    "rfc8941",
+    "webcrypto",
+    "signing",
+    "verification",
+    "zero-dependencies"
+  ],
+  "author": "John Henry <john@iamjohnhenry.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnhenry/http-fields-signatures.git"
+  },
+  "bugs": {
+    "url": "https://github.com/johnhenry/http-fields-signatures/issues"
+  },
+  "homepage": "https://github.com/johnhenry/http-fields-signatures#readme",
+  "files": [
+    "index.mjs",
+    "base.mjs",
+    "crypto.mjs",
+    "types.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "http-fields": "^0.1.0"
+  }
+}

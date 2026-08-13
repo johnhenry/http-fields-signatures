@@ -1,0 +1,22 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      # Until http-fields@^0.1.0 is on npm, install the dependency from the
+      # GitHub repo; switch this to a plain `npm install` after it's published.
+      - run: npm install --no-save github:johnhenry/http-fields || npm install
+      - run: npm test
