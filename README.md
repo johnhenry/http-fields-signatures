@@ -100,6 +100,16 @@ them: PKCS#8 is just an ASN.1 envelope around the SEC1 payload, so the
 conversion is pure DER re-packaging with no cryptography involved. The
 transcoder is also exported directly as `sec1ToPkcs8(sec1Bytes, namedCurve?)`.
 
+**Encrypted private keys are not supported.** Password-protected PEMs —
+PKCS#8 `ENCRYPTED PRIVATE KEY` (PBES2) or legacy `Proc-Type: 4,ENCRYPTED`
+blocks — require key-derivation cryptography, not byte re-packaging, and
+`importKey` rejects them with a clear error. Decrypt once outside the
+library instead:
+
+```bash
+openssl pkcs8 -topk8 -nocrypt -in encrypted-key.pem -out key.pem
+```
+
 ## Covered components
 
 Components are strings or `{id, params}` objects:

@@ -156,6 +156,18 @@ export const importKey = async (alg, material, usage) => {
   }
 
   if (typeof material === "string") {
+    // Encrypted keys are out of scope: decrypting them means PBES2/PBKDF2 key
+    // derivation, not DER re-packaging. Decrypt once with
+    // `openssl pkcs8 -topk8 -nocrypt` and pass the result instead.
+    if (
+      material.includes("ENCRYPTED PRIVATE KEY") ||
+      /Proc-Type:\s*4\s*,\s*ENCRYPTED/.test(material)
+    ) {
+      throw new Error(
+        "Encrypted private keys are not supported; decrypt first, e.g. " +
+          "`openssl pkcs8 -topk8 -nocrypt -in key.pem`"
+      );
+    }
     const pkcs8 = pemToBytes(material, "PRIVATE KEY");
     if (pkcs8) {
       return subtle.importKey("pkcs8", pkcs8, spec.importParams, false, ["sign"]);
