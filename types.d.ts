@@ -81,6 +81,15 @@ export declare function getHeaderValues(
   name: string
 ): string[];
 
+/**
+ * Wrap SEC1 "EC PRIVATE KEY" DER bytes in a PKCS#8 envelope so WebCrypto can
+ * import them. Pure ASN.1 re-packaging; no cryptography involved.
+ */
+export declare function sec1ToPkcs8(
+  sec1: Uint8Array,
+  namedCurve?: "P-256" | "P-384" | "P-521"
+): Uint8Array;
+
 export declare function importKey(
   alg: AlgorithmName,
   material: KeyMaterial,

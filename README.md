@@ -92,9 +92,13 @@ await signMessage(response, {
 | `hmac-sha256` | HMAC, SHA-256 |
 
 Keys are accepted as **CryptoKey**, **JWK** objects, **PEM** strings (PKCS#8
-private / SPKI public), or raw **Uint8Array** bytes (HMAC). Note: SEC1
-`EC PRIVATE KEY` PEMs are not importable by WebCrypto — use JWK or PKCS#8
-for EC private keys.
+or SEC1 private / SPKI public), or raw **Uint8Array** bytes (HMAC).
+
+WebCrypto itself cannot import SEC1 `EC PRIVATE KEY` PEMs (the format RFC
+9421 uses for its P-256 example key), so `importKey` transparently re-wraps
+them: PKCS#8 is just an ASN.1 envelope around the SEC1 payload, so the
+conversion is pure DER re-packaging with no cryptography involved. The
+transcoder is also exported directly as `sec1ToPkcs8(sec1Bytes, namedCurve?)`.
 
 ## Covered components
 

@@ -354,6 +354,60 @@ describe("High-level sign/verify", () => {
   });
 });
 
+describe("SEC1 EC PRIVATE KEY PEM support", () => {
+  test("signs with RFC 9421's own SEC1 PEM and verifies with the JWK public key", async () => {
+    const c = CASES.b24;
+    const { base } = createSignatureBase(c.message, c.components, c.params);
+    const sig = await signBase(
+      "ecdsa-p256-sha256",
+      KEYS["test-key-ecc-p256"].privateSec1Pem,
+      base
+    );
+    assert.strictEqual(
+      await verifyBase(
+        "ecdsa-p256-sha256",
+        KEYS["test-key-ecc-p256"].publicJwk,
+        sig,
+        base
+      ),
+      true
+    );
+  });
+
+  test("SEC1 and JWK private keys produce interchangeable signatures", async () => {
+    const base = "test data";
+    const sigFromPem = await signBase(
+      "ecdsa-p256-sha256",
+      KEYS["test-key-ecc-p256"].privateSec1Pem,
+      base
+    );
+    // Verify PEM-produced signature with JWK public, and vice versa
+    assert.strictEqual(
+      await verifyBase(
+        "ecdsa-p256-sha256",
+        KEYS["test-key-ecc-p256"].publicJwk,
+        sigFromPem,
+        base
+      ),
+      true
+    );
+    const sigFromJwk = await signBase(
+      "ecdsa-p256-sha256",
+      KEYS["test-key-ecc-p256"].privateJwk,
+      base
+    );
+    assert.strictEqual(
+      await verifyBase(
+        "ecdsa-p256-sha256",
+        KEYS["test-key-ecc-p256"].publicJwk,
+        sigFromJwk,
+        base
+      ),
+      true
+    );
+  });
+});
+
 describe("Signature header parsing", () => {
   test("parses Signature-Input and Signature dictionaries", () => {
     const entries = parseSignatureHeaders(
