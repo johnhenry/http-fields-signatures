@@ -408,6 +408,27 @@ describe("SEC1 EC PRIVATE KEY PEM support", () => {
   });
 });
 
+describe("Encrypted PEM rejection", () => {
+  test("rejects encrypted PKCS#8 and legacy encrypted PEMs with a clear error", async () => {
+    await assert.rejects(
+      signBase(
+        "ecdsa-p256-sha256",
+        "-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIB...\n-----END ENCRYPTED PRIVATE KEY-----",
+        "data"
+      ),
+      /Encrypted private keys are not supported/
+    );
+    await assert.rejects(
+      signBase(
+        "ecdsa-p256-sha256",
+        "-----BEGIN EC PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\nDEK-Info: AES-128-CBC,ABCD\n\nMIIB...\n-----END EC PRIVATE KEY-----",
+        "data"
+      ),
+      /Encrypted private keys are not supported/
+    );
+  });
+});
+
 describe("Signature header parsing", () => {
   test("parses Signature-Input and Signature dictionaries", () => {
     const entries = parseSignatureHeaders(
