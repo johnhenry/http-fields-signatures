@@ -16,7 +16,13 @@ import {
 import { ALGORITHMS, importKey, signBase, verifyBase } from "./crypto.mjs";
 
 export { createSignatureBase, getHeaderValues } from "./base.mjs";
-export { ALGORITHMS, importKey, signBase, verifyBase } from "./crypto.mjs";
+export {
+  ALGORITHMS,
+  importKey,
+  signBase,
+  verifyBase,
+  sec1ToPkcs8,
+} from "./crypto.mjs";
 
 const bytesToB64 = (bytes) => {
   let bin = "";

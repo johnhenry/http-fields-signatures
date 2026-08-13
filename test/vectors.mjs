@@ -24,6 +24,11 @@ export const KEYS = {
   },
   "test-key-ecc-p256": {
     alg: "ecdsa-p256-sha256",
+    privateSec1Pem: `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIFKbhfNZfpDsW43+0+JjUr9K+bTeuxopu653+hBaXGA7oAoGCCqGSM49
+AwEHoUQDQgAEqIVYZVLCrPZHGHjP17CTW0/+D9Lfw0EkjqF7xB4FivAxzic30tMM
+4GF+hR6Dxh71Z50VGGdldkkDXZCnTNnoXQ==
+-----END EC PRIVATE KEY-----`,
     privateJwk: {
       kty: "EC",
       crv: "P-256",
