@@ -161,6 +161,12 @@ npm test
 The suite includes the full RFC 9421 Appendix B vectors (B.2.1–B.2.6) plus
 round-trip, tampering, and expiry tests.
 
+## Alternatives
+
+See [COMPARISON.md](COMPARISON.md) for a side-by-side comparison with
+[`http-message-signatures`](https://github.com/dhensby/node-http-message-signatures),
+including how to do the same signing/verifying tasks in each.
+
 ## License
 
 MIT
