@@ -1,4 +1,4 @@
-// Type definitions for http-fields-signatures
+// Type definitions for @johnhenry/http-fields-signatures
 // Project: https://github.com/johnhenry/http-fields-signatures
 
 /** HTTP request message (runtime-agnostic). */

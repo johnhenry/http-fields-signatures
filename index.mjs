@@ -1,13 +1,13 @@
 /**
- * http-fields-signatures — RFC 9421 HTTP Message Signatures.
+ * @johnhenry/http-fields-signatures — RFC 9421 HTTP Message Signatures.
  *
- * Built on `http-fields` (RFC 8941/9651 Structured Field Values) for all
+ * Built on `@johnhenry/http-fields` (RFC 8941/9651 Structured Field Values) for all
  * header parsing/serialization, and WebCrypto for the cryptography.
  */
 
 "use strict";
 
-import { parse, serialize, binary } from "http-fields";
+import { parse, serialize, binary } from "@johnhenry/http-fields";
 import {
   createSignatureBase,
   getHeaderValues,
