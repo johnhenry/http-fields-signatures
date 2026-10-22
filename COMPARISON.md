@@ -1,4 +1,4 @@
-# Comparison: http-fields-signatures vs http-message-signatures
+# Comparison: @johnhenry/http-fields-signatures vs http-message-signatures
 
 The most established alternative on npm is
 [`http-message-signatures`](https://github.com/dhensby/node-http-message-signatures)
@@ -9,12 +9,12 @@ There's a neat symmetry in the stacks: `http-message-signatures` builds on
 [`structured-headers`](https://github.com/badgateway/structured-headers)
 (badgateway) for its Structured Field Values, while this library builds on
 [`http-fields`](https://github.com/johnhenry/http-fields) — the same pairing
-compared in http-fields' own
+compared in @johnhenry/http-fields' own
 [COMPARISON.md](https://github.com/johnhenry/http-fields/blob/main/COMPARISON.md).
 
 ## At a glance
 
-| | http-fields-signatures | http-message-signatures |
+| | @johnhenry/http-fields-signatures | http-message-signatures |
 | --- | --- | --- |
 | **Spec target** | RFC 9421 (final) | draft-ietf-httpbis-message-signatures-13 (per its README), plus the legacy Cavage draft |
 | **Legacy Cavage support** | No | Yes (`draft-cavage-http-signatures`) |
@@ -22,20 +22,20 @@ compared in http-fields' own
 | **Runtimes** | Node ≥ 20, browsers, edge workers | Node-first (custom signers can bridge elsewhere) |
 | **Bring-your-own-signer (KMS/enclave)** | Not yet — keys must be importable material | Yes: any `{id, alg, sign(data)}` object |
 | **Key formats** | CryptoKey, JWK, PEM (PKCS#8 / SPKI / SEC1 via built-in transcoding), raw bytes (HMAC) | Node `KeyObject`-compatible inputs via `createSigner`/`createVerifier`, or custom signer |
-| **SFV engine** | http-fields | structured-headers (badgateway) |
+| **SFV engine** | @johnhenry/http-fields | structured-headers (badgateway) |
 | **Conformance testing** | Full RFC 9421 Appendix B vectors: all six signature bases byte-exact; RFC signatures verified; HMAC/Ed25519 byte-exact | Own test suite |
 | **Verify failure style** | Per-label result objects: `{verified, reason}`; structural errors throw | `verifyMessage` throws (e.g. on missing key) |
 | **Signing output** | Header values to attach (`{signatureInput, signature, base}`) | The whole message object with headers added |
-| **Dependencies** | http-fields | structured-headers |
+| **Dependencies** | @johnhenry/http-fields | structured-headers |
 
 ## Same task, both libraries
 
 ### Signing a request
 
-**http-fields-signatures:**
+**@johnhenry/http-fields-signatures:**
 
 ```javascript
-import { signMessage } from "http-fields-signatures";
+import { signMessage } from "@johnhenry/http-fields-signatures";
 
 const request = {
   method: "POST",
@@ -70,7 +70,7 @@ const signedRequest = await signMessage(
 // signedRequest.headers now contains Signature and Signature-Input
 ```
 
-Differences to notice: http-fields-signatures returns the two header values
+Differences to notice: @johnhenry/http-fields-signatures returns the two header values
 (you attach them), takes the key as raw material, and omits the `alg`
 parameter from `Signature-Input` unless you pass `includeAlg: true` (RFC 9421
 §7.3.6 favors deriving the algorithm from key metadata). http-message-signatures
@@ -78,10 +78,10 @@ returns a new message object and includes `alg`/`expires` by default.
 
 ### Verifying a request
 
-**http-fields-signatures:**
+**@johnhenry/http-fields-signatures:**
 
 ```javascript
-import { verifyMessage } from "http-fields-signatures";
+import { verifyMessage } from "@johnhenry/http-fields-signatures";
 
 const results = await verifyMessage(request, {
   getKey: ({ keyid }) => ({ alg: "hmac-sha256", key: keys.get(keyid) }),
@@ -116,7 +116,7 @@ message.
 
 ### Response bound to its request
 
-**http-fields-signatures** — the request rides along on the response message,
+**@johnhenry/http-fields-signatures** — the request rides along on the response message,
 and `;req`-flagged components pull from it:
 
 ```javascript
@@ -144,7 +144,7 @@ Choose **http-message-signatures** when you need the **legacy Cavage draft**
 enclave** and you need to plug in a custom `sign()` callback rather than
 importable key material.
 
-Choose **http-fields-signatures** when you want the **final RFC 9421**
+Choose **@johnhenry/http-fields-signatures** when you want the **final RFC 9421**
 semantics validated **byte-exactly against the RFC's own Appendix B vectors**,
 a **WebCrypto-only** implementation that runs unchanged in browsers and edge
 runtimes, flexible key input (JWK/PEM/SEC1/CryptoKey/raw), or per-label

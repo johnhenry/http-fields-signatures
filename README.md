@@ -1,4 +1,6 @@
-# http-fields-signatures
+# @johnhenry/http-fields-signatures
+
+> Previously published as the unscoped `http-fields-signatures` (0.1.0). This scoped package continues that line at 0.2.0 and depends on `@johnhenry/http-fields`.
 
 [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421.html) **HTTP Message
 Signatures** for JavaScript — sign and verify HTTP requests and responses.
@@ -16,7 +18,7 @@ exact signature bytes.
 ## Installation
 
 ```bash
-npm install http-fields-signatures
+npm install @johnhenry/http-fields-signatures
 ```
 
 ## Quick Start
@@ -24,7 +26,7 @@ npm install http-fields-signatures
 ### Signing a request
 
 ```javascript
-import { signMessage } from "http-fields-signatures";
+import { signMessage } from "@johnhenry/http-fields-signatures";
 
 const request = {
   method: "POST",
@@ -51,7 +53,7 @@ request.headers["Signature"] = signature;
 ### Verifying
 
 ```javascript
-import { verifyMessage } from "http-fields-signatures";
+import { verifyMessage } from "@johnhenry/http-fields-signatures";
 
 const results = await verifyMessage(request, {
   getKey: ({ keyid }) => ({ alg: "ed25519", key: publicKeys[keyid] }),
@@ -132,7 +134,7 @@ import {
   parseSignatureHeaders, // parse Signature-Input / Signature dictionaries
   signBase, verifyBase, // raw crypto over a base string
   importKey, ALGORITHMS,
-} from "http-fields-signatures";
+} from "@johnhenry/http-fields-signatures";
 
 const { base } = createSignatureBase(request, ["@method", "content-type"], {
   created: 1618884473,

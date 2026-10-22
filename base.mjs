@@ -11,7 +11,7 @@
 
 "use strict";
 
-import { parse, serialize } from "http-fields";
+import { parse, serialize } from "@johnhenry/http-fields";
 
 // --- header access ---------------------------------------------------------
 
