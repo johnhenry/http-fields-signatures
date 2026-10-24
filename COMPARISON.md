@@ -19,7 +19,7 @@ compared in @johnhenry/http-fields' own
 | **Spec target** | RFC 9421 (final) | draft-ietf-httpbis-message-signatures-13 (per its README), plus the legacy Cavage draft |
 | **Legacy Cavage support** | No | Yes (`draft-cavage-http-signatures`) |
 | **Crypto engine** | WebCrypto (`globalThis.crypto.subtle`) | Node `crypto` built-ins; pluggable signer/verifier interface |
-| **Runtimes** | Node ≥ 20, browsers, edge workers | Node-first (custom signers can bridge elsewhere) |
+| **Runtimes** | Node ≥ 26, browsers, edge workers | Node-first (custom signers can bridge elsewhere) |
 | **Bring-your-own-signer (KMS/enclave)** | Not yet — keys must be importable material | Yes: any `{id, alg, sign(data)}` object |
 | **Key formats** | CryptoKey, JWK, PEM (PKCS#8 / SPKI / SEC1 via built-in transcoding), raw bytes (HMAC) | Node `KeyObject`-compatible inputs via `createSigner`/`createVerifier`, or custom signer |
 | **SFV engine** | @johnhenry/http-fields | structured-headers (badgateway) |

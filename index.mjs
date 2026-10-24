@@ -12,6 +12,7 @@ import {
   createSignatureBase,
   getHeaderValues,
   normalizeComponent,
+  serializeComponentIdentifier,
 } from "./base.mjs";
 import { ALGORITHMS, importKey, signBase, verifyBase } from "./crypto.mjs";
 
@@ -23,6 +24,11 @@ export {
   verifyBase,
   sec1ToPkcs8,
 } from "./crypto.mjs";
+export {
+  DIGEST_ALGORITHMS,
+  createContentDigest,
+  verifyContentDigest,
+} from "./digest.mjs";
 
 const bytesToB64 = (bytes) => {
   let bin = "";
@@ -138,6 +144,9 @@ export const signMessage = async (message, options) => {
   return { signatureInput, signature, base, label };
 };
 
+const componentKey = (component) =>
+  serializeComponentIdentifier(normalizeComponent(component));
+
 /**
  * Verify the signatures on an HTTP message (RFC 9421).
  *
@@ -145,15 +154,37 @@ export const signMessage = async (message, options) => {
  * via options. Structural problems throw; cryptographic mismatch and policy
  * failures report as verified:false with a reason.
  *
+ * Policy options are all opt-in; with none set, the only time-based check is
+ * that `expires` (when present) is not in the past. Checks run in this order:
+ * expires, created (clockSkew / maxAge), tag, requiredComponents, key
+ * lookup, alg agreement, cryptographic verification, and finally the nonce
+ * callback (only for otherwise-valid signatures, so invalid ones never
+ * consume a nonce).
+ *
  * @param {object} message
  * @param {object} options
  * @param {(context: {label: string, keyid?: string, alg?: string}) =>
  *   (object|Promise<object>)} options.getKey - resolves {alg, key} (or just a
- *   key when the signature's alg parameter should be trusted) for a signature
+ *   key when the signature's alg parameter should be trusted) for a
+ *   signature. If both the resolved alg and the signature's alg parameter
+ *   are present they must be equal (RFC 9421 §3.2), or verification fails.
  * @param {string} [options.label] - verify only this label
  * @param {string} [options.signatureInput] - override header lookup
  * @param {string} [options.signature] - override header lookup
- * @param {number} [options.now=now] - unix seconds for expires checking
+ * @param {number} [options.now=now] - unix seconds for time checks
+ * @param {number} [options.clockSkew] - tolerance in seconds applied to the
+ *   expires/created checks. Setting it (or maxAge) also rejects signatures
+ *   whose `created` is more than clockSkew seconds in the future.
+ * @param {number} [options.maxAge] - require `created` and reject signatures
+ *   older than this many seconds (plus clockSkew)
+ * @param {string|string[]} [options.tag] - require the `tag` parameter to
+ *   equal this value (or one of these values)
+ * @param {Array<string|{id, params}>} [options.requiredComponents] -
+ *   components every accepted signature must cover
+ * @param {(nonce: string, context: {label: string, keyid?: string,
+ *   params: object}) => (boolean|Promise<boolean>)} [options.checkNonce] -
+ *   when set, a `nonce` parameter is required and the callback must return
+ *   true (e.g. after recording it as seen) for the signature to verify
  * @param {object} [options.fieldTypes]
  * @returns {Promise<Array<{label: string, verified: boolean, reason?: string,
  *   params: object, components: Array<{id, params}>}>>}
@@ -163,8 +194,30 @@ export const verifyMessage = async (message, options) => {
     getKey,
     label: onlyLabel,
     now = Math.floor(Date.now() / 1000),
+    clockSkew,
+    maxAge,
+    tag,
+    requiredComponents,
+    checkNonce,
     fieldTypes,
   } = options;
+
+  for (const [name, value] of [
+    ["clockSkew", clockSkew],
+    ["maxAge", maxAge],
+  ]) {
+    if (value !== undefined && !(Number.isFinite(value) && value >= 0)) {
+      throw new TypeError(`${name} must be a non-negative number`);
+    }
+  }
+  if (checkNonce !== undefined && typeof checkNonce !== "function") {
+    throw new TypeError("checkNonce must be a function");
+  }
+  const skew = clockSkew ?? 0;
+  const checkCreated = clockSkew !== undefined || maxAge !== undefined;
+  const allowedTags =
+    tag === undefined ? undefined : Array.isArray(tag) ? tag : [tag];
+  const required = (requiredComponents ?? []).map(componentKey);
 
   const signatureInput =
     options.signatureInput ??
@@ -196,22 +249,58 @@ export const verifyMessage = async (message, options) => {
       result.reason = "No Signature value for this label";
       continue;
     }
-    if (Number.isInteger(params.expires) && params.expires < now) {
+    if (Number.isInteger(params.expires) && params.expires + skew < now) {
       result.reason = "Signature expired";
       continue;
     }
+    if (checkCreated) {
+      const hasCreated = Number.isInteger(params.created);
+      if (maxAge !== undefined && !hasCreated) {
+        result.reason = "Missing created parameter";
+        continue;
+      }
+      if (hasCreated && params.created > now + skew) {
+        result.reason = "Signature created in the future";
+        continue;
+      }
+      if (maxAge !== undefined && now - params.created > maxAge + skew) {
+        result.reason = "Signature too old";
+        continue;
+      }
+    }
+    if (allowedTags && !allowedTags.includes(params.tag)) {
+      result.reason = "Tag mismatch";
+      continue;
+    }
+    if (required.length) {
+      const covered = new Set(components.map(componentKey));
+      const missing = required.filter((id) => !covered.has(id));
+      if (missing.length) {
+        result.reason = `Missing required components: ${missing.join(" ")}`;
+        continue;
+      }
+    }
 
-    const resolved = await getKey({
-      label,
-      keyid: typeof params.keyid === "string" ? params.keyid : undefined,
-      alg: typeof params.alg === "string" ? params.alg : undefined,
-    });
+    const keyid = typeof params.keyid === "string" ? params.keyid : undefined;
+    const sigAlg = typeof params.alg === "string" ? params.alg : undefined;
+    const resolved = await getKey({ label, keyid, alg: sigAlg });
     if (!resolved) {
       result.reason = "Key not found";
       continue;
     }
-    const alg = resolved.alg ?? params.alg;
-    const key = resolved.key ?? resolved;
+    // {alg?, key} wrapper vs. bare key material. A bare JWK may carry its
+    // own (JOSE) "alg" member, which is not an RFC 9421 algorithm name.
+    const wrapped =
+      typeof resolved === "object" &&
+      !(resolved instanceof Uint8Array) &&
+      resolved.key !== undefined;
+    const keyAlg = wrapped ? resolved.alg : undefined;
+    const key = wrapped ? resolved.key : resolved;
+    if (keyAlg !== undefined && sigAlg !== undefined && keyAlg !== sigAlg) {
+      result.reason = `Algorithm mismatch: key is ${keyAlg}, signature declares ${sigAlg}`;
+      continue;
+    }
+    const alg = keyAlg ?? sigAlg;
     if (!ALGORITHMS[alg]) {
       result.reason = `Unsupported algorithm: ${alg}`;
       continue;
@@ -221,12 +310,60 @@ export const verifyMessage = async (message, options) => {
       fieldTypes,
     });
     const ok = await verifyBase(alg, key, entry.signature, base);
-    result.verified = ok;
-    if (!ok) result.reason = "Signature mismatch";
+    if (!ok) {
+      result.reason = "Signature mismatch";
+      continue;
+    }
+
+    if (checkNonce) {
+      if (typeof params.nonce !== "string") {
+        result.reason = "Missing nonce";
+        continue;
+      }
+      const accepted = await checkNonce(params.nonce, { label, keyid, params });
+      if (accepted !== true) {
+        result.reason = "Nonce rejected";
+        continue;
+      }
+    }
+    result.verified = true;
   }
 
   if (onlyLabel && results.length === 0) {
     throw new Error(`No signature labeled "${onlyLabel}" found`);
   }
   return results;
+};
+
+/**
+ * Adapt a Fetch API `Request` into a message for signMessage/verifyMessage.
+ * Only method, URL and headers are read; the body is untouched (use
+ * createContentDigest / verifyContentDigest for it).
+ *
+ * @param {Request} request
+ * @returns {{method: string, url: string, headers: Headers}}
+ */
+export const fromFetchRequest = (request) => ({
+  method: request.method,
+  url: request.url,
+  headers: request.headers,
+});
+
+/**
+ * Adapt a Fetch API `Response` into a message. Pass the related `Request`
+ * (or an already-adapted request message) to enable `;req` components.
+ *
+ * @param {Response} response
+ * @param {Request|object} [request]
+ * @returns {{status: number, headers: Headers, request?: object}}
+ */
+export const fromFetchResponse = (response, request) => {
+  const message = { status: response.status, headers: response.headers };
+  if (request !== undefined) {
+    message.request =
+      typeof Request !== "undefined" && request instanceof Request
+        ? fromFetchRequest(request)
+        : request;
+  }
+  return message;
 };

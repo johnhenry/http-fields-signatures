@@ -7,8 +7,9 @@ Signatures** for JavaScript — sign and verify HTTP requests and responses.
 
 Built on [`http-fields`](https://github.com/johnhenry/http-fields) (RFC
 8941/9651 Structured Field Values) for all header parsing/serialization, and
-on WebCrypto for the cryptography. Runtime-agnostic: Node.js ≥ 20, browsers,
-and edge runtimes with `globalThis.crypto.subtle`.
+on WebCrypto for the cryptography. Runtime-agnostic: Node.js ≥ 26 (the
+`engines` range, and the version CI tests), browsers, and edge runtimes with
+`globalThis.crypto.subtle` (including Ed25519 support).
 
 Validated against the complete RFC 9421 Appendix B test suite: all six
 signature bases are reproduced byte-exactly, the RFC's RSA-PSS and ECDSA
@@ -64,6 +65,78 @@ const results = await verifyMessage(request, {
 Structural problems (unparseable headers) throw; cryptographic mismatches and
 policy failures (expired signatures, unknown keys) report as
 `{verified: false, reason}` so one bad signature doesn't mask others.
+
+#### Verification policy
+
+By default `verifyMessage` only checks the cryptography and that `expires`
+(if present) is not in the past. **A signature that covers no components
+verifies** unless you say otherwise, so set a policy:
+
+```javascript
+const results = await verifyMessage(request, {
+  getKey,
+  requiredComponents: ["@method", "@target-uri", "content-digest"],
+  tag: "my-app",       // string or array of accepted tags
+  maxAge: 300,         // require `created`, refuse if older than 5 minutes
+  clockSkew: 30,       // tolerance for created/expires; also refuses future `created`
+  checkNonce: async (nonce, { keyid }) => nonceStore.addIfNew(keyid, nonce),
+});
+```
+
+| Option | Effect when set | Reason on failure |
+| --- | --- | --- |
+| `requiredComponents` | every listed component (with its parameters) must be covered | `Missing required components: ...` |
+| `tag` | the `tag` parameter must equal the value (or one of the array) | `Tag mismatch` |
+| `maxAge` | `created` is required and `now - created <= maxAge + clockSkew` | `Missing created parameter`, `Signature too old` |
+| `clockSkew` | `expires + clockSkew >= now`; `created <= now + clockSkew` (the future-`created` check also runs when only `maxAge` is set) | `Signature expired`, `Signature created in the future` |
+| `checkNonce` | a `nonce` is required and the (sync or async) callback must return `true`; it runs only after the signature verified, so invalid signatures never consume a nonce | `Missing nonce`, `Nonce rejected` |
+
+All are opt-in, so existing callers see no change. `now` (unix seconds)
+overrides the clock for every time check.
+
+**Algorithm agreement (RFC 9421 §3.2):** `getKey` may return `{alg, key}`
+or bare key material. With bare material the signature's `alg` parameter is
+used. If both `getKey`'s `alg` and the signature's `alg` parameter are
+present and differ, the signature is refused (`Algorithm mismatch: ...`)
+rather than silently verified with the key's algorithm.
+
+### Content-Digest (RFC 9530)
+
+Sign `content-digest` to protect the body, and check the body against it:
+
+```javascript
+import {
+  createContentDigest, verifyContentDigest,
+} from "@johnhenry/http-fields-signatures";
+
+request.headers["Content-Digest"] = await createContentDigest(body);
+// sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
+await createContentDigest(body, { algorithms: ["sha-256", "sha-512"] });
+
+// receiver: verify the signature (covering content-digest), then the body
+const digest = await verifyContentDigest(body, headers["content-digest"]);
+// { verified: true, algorithm: "sha-512" }
+```
+
+Bodies may be strings (UTF-8), `Uint8Array`, `ArrayBuffer`, typed-array
+views, or `Blob`s. Supported algorithms are `sha-256` and `sha-512`;
+unknown or deprecated ones in a received header are ignored. Every supported
+digest present must match, and `algorithm` reports the strongest one used.
+No supported digest, a missing header, or a mismatch return
+`{verified: false, reason}`; an unparseable header throws. Restrict accepted
+algorithms with `{ algorithms: ["sha-512"] }`.
+
+### Fetch `Request` / `Response`
+
+```javascript
+import { fromFetchRequest, fromFetchResponse } from "@johnhenry/http-fields-signatures";
+
+const results = await verifyMessage(fromFetchRequest(request), { getKey });
+const message = fromFetchResponse(response, request); // enables ;req components
+```
+
+The adapters read only method/URL/status/headers; read the body yourself
+(e.g. `await request.clone().arrayBuffer()`) for `verifyContentDigest`.
 
 ### Signing a response (with request binding)
 
@@ -134,6 +207,7 @@ import {
   parseSignatureHeaders, // parse Signature-Input / Signature dictionaries
   signBase, verifyBase, // raw crypto over a base string
   importKey, ALGORITHMS,
+  DIGEST_ALGORITHMS,
 } from "@johnhenry/http-fields-signatures";
 
 const { base } = createSignatureBase(request, ["@method", "content-type"], {
@@ -161,7 +235,8 @@ npm test
 ```
 
 The suite includes the full RFC 9421 Appendix B vectors (B.2.1–B.2.6) plus
-round-trip, tampering, and expiry tests.
+round-trip, tampering, and expiry tests, RFC 9530 Content-Digest vectors,
+verification-policy, `alg`-agreement, and Fetch adapter tests.
 
 ## Alternatives
 
