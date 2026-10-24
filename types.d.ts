@@ -152,6 +152,11 @@ export interface VerifyResult {
 }
 
 export interface VerifyOptions {
+  /**
+   * Resolve the verification key. Return `{alg, key}` or bare key material
+   * (then the signature's `alg` parameter is used). If both `alg`s are
+   * present and differ, verification fails (RFC 9421 §3.2).
+   */
   getKey: (context: {
     label: string;
     keyid?: string;
@@ -163,8 +168,28 @@ export interface VerifyOptions {
   label?: string;
   signatureInput?: string;
   signature?: string;
-  /** Unix seconds used for expires checking; defaults to now. */
+  /** Unix seconds used for time checks; defaults to now. */
   now?: number;
+  /**
+   * Tolerance in seconds for the expires/created checks. Setting it (or
+   * maxAge) also refuses signatures whose `created` is more than clockSkew
+   * seconds in the future. Default: no tolerance, no created check.
+   */
+  clockSkew?: number;
+  /** Require `created` and refuse signatures older than this many seconds. */
+  maxAge?: number;
+  /** Require the `tag` parameter to equal this value (or one of these). */
+  tag?: string | string[];
+  /** Components every accepted signature must cover. */
+  requiredComponents?: ComponentSpec[];
+  /**
+   * When set, a `nonce` parameter is required and this must return `true`
+   * (sync or async). Called only for otherwise-valid signatures.
+   */
+  checkNonce?: (
+    nonce: string,
+    context: { label: string; keyid?: string; params: SignatureParams }
+  ) => boolean | Promise<boolean>;
   fieldTypes?: FieldTypes;
 }
 
@@ -172,3 +197,44 @@ export declare function verifyMessage(
   message: Message,
   options: VerifyOptions
 ): Promise<VerifyResult[]>;
+
+
+// --- Content-Digest (RFC 9530) ---------------------------------------------
+
+export type DigestAlgorithmName = "sha-256" | "sha-512";
+
+/** Body accepted by the digest helpers; strings are UTF-8 encoded. */
+export type DigestBody = string | Uint8Array | ArrayBuffer | ArrayBufferView | Blob;
+
+export declare const DIGEST_ALGORITHMS: Record<
+  DigestAlgorithmName,
+  { hash: string; strength: number }
+>;
+
+/** Create a Content-Digest header value, e.g. `sha-256=:<base64>:`. */
+export declare function createContentDigest(
+  body: DigestBody,
+  options?: { algorithms?: DigestAlgorithmName | DigestAlgorithmName[] }
+): Promise<string>;
+
+/**
+ * Verify a body against a Content-Digest header value. Unknown algorithms
+ * are ignored; every supported digest present must match; `algorithm` is
+ * the strongest one used.
+ */
+export declare function verifyContentDigest(
+  body: DigestBody,
+  header: string | string[] | undefined,
+  options?: { algorithms?: DigestAlgorithmName[] }
+): Promise<{ verified: boolean; algorithm?: DigestAlgorithmName; reason?: string }>;
+
+// --- Fetch adapters ----------------------------------------------------------
+
+/** Adapt a Fetch `Request` (method, url, headers; body untouched). */
+export declare function fromFetchRequest(request: Request): RequestMessage;
+
+/** Adapt a Fetch `Response`; pass the related request to enable `;req`. */
+export declare function fromFetchResponse(
+  response: Response,
+  request?: Request | RequestMessage
+): ResponseMessage;

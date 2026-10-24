@@ -1,6 +1,6 @@
 {
   "name": "@johnhenry/http-fields-signatures",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "RFC 9421 HTTP Message Signatures — sign and verify HTTP requests and responses, built on http-fields (RFC 8941/9651 Structured Field Values) and WebCrypto",
   "main": "index.mjs",
   "type": "module",
@@ -19,6 +19,8 @@
     "signatures",
     "message-signatures",
     "rfc9421",
+    "rfc9530",
+    "content-digest",
     "@johnhenry/http-fields",
     "structured-fields",
     "rfc8941",
@@ -41,6 +43,7 @@
     "index.mjs",
     "base.mjs",
     "crypto.mjs",
+    "digest.mjs",
     "types.d.ts",
     "README.md",
     "LICENSE"
